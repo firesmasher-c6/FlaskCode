@@ -1,0 +1,13 @@
+-! KEY 1 (GEMINI)
+key_1: AIz... / AQ....
+-! KEY 2 (GROQ)
+key_2: gsk_....
+-! KEY 3 (OPENROUTER)
+key_3: sk-or-v1-....
+
+-! Notes:
+-! - Copy this file to .apikeys in the repository root.
+-! - Keep .apikeys private and do not commit it. It is ignored by .gitignore.
+-! - The application uses key_1/key_2/key_3 slots for Gemini/OpenRouter/Groq flows.
+-! - You can also use GEMINI_API_KEY from the environment as an extra key source.
+-! - FOR COMMENTS USE "-!" NOT "#" IF YOU USE "#" THE CODE WILL TRY TO REPAIR ".apikeys"!

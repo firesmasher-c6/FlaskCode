@@ -1,0 +1,15 @@
+.apikeys
+.flask/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.swp
+*.swo
+.env
+.env.*
+.venv/
+venv/
+*.log
+outputs/
+.saved-info/
