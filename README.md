@@ -1,102 +1,192 @@
-# Flask Code
+# FlaskCode-Server
 
-A desktop and terminal tool for transforming an AI into an AI agent that can assist with code-oriented workflows. Flask Code is only tested on Windows and supports Gemini, OpenRouter, and Groq providers, plus a Tkinter-powered GUI with markdown-style output, terminal commands, and API key slot management.
+Linux-only Flask REST API server. No GUI. Terminal/CLI admin console runs alongside the HTTP server in the same process.
 
-## Features
+---
 
-- Terminal and GUI chat interfaces
-- Tkinter-based desktop chat window and dialogs
-- Multi-provider support: Gemini, OpenRouter, Groq
-- API key slot management via `.apikeys` and per-user `.apikeyml` settings
-- Persistent user login / PIN access
-- Commands for account registration, model switching, and file operations
-- Lightweight Python implementation with YAML-backed settings
-
-## Requirements
-
-- Python 3.10+ recommended
-- `PyYAML>=6.0`
-- Tkinter support for GUI mode
-
-> This project is only tested on Windows.
-
-> On Windows, Python usually includes Tkinter. On Linux, install your distribution's `python3-tk` package.
-
-## Installation
-
-1. Clone or download this repository.
-2. Install dependencies:
+## Setup
 
 ```bash
-python -m pip install -r requirements.txt
+pip install -r requirements.txt
 ```
 
-3. Copy `.apikeys_example` to `.apikeys` and add your real API keys.
-
-```bash
-copy .apikeys_example .apikeys
-```
-
-4. Make sure `.apikeys` is not committed to Git; it is already ignored by `.gitignore`.
-
-## Configure API Keys
-
-Add the scripts `flaskc.ps1`, `flaskcode.ps1`, and `flck.ps1` to your PATH so you can launch the app from any PowerShell session. Also add `bin/launch.py` to PATH if you want a quick way to launch the GUI from the command line.
-
-
-Open `.apikeys` and replace the placeholder values with your API keys:
+Create a `.apikeys` file next to `server.py` (YAML format):
 
 ```yaml
-key_1: "YOUR_GEMINI_API_KEY"
-key_2: "YOUR_SECOND_KEY_OR_PLACEHOLDER"
-key_3: "YOUR_OPENROUTER_OR_FALLBACK_KEY"
+key_1: "AIza..."          # Gemini key
+key_2: YOUR_API_KEY_HERE  # unused slot
+key_3: YOUR_API_KEY_HERE  # unused slot
 ```
 
-- `key_1`, `key_2`, `key_3` are the slot names used by the application.
-- The application can also read an environment variable named `GEMINI_API_KEY`.
+---
 
-## Running the App
-
-- Terminal interface:
+## Start the server
 
 ```bash
-python main.py
+# Localhost only (default, safest)
+python server.py
+
+# Custom port
+python server.py --port 8080
+
+# All interfaces (LAN/remote clients)
+python server.py --public --port 5000
+
+# No admin console (pure daemon mode)
+python server.py --no-console
 ```
 
-- GUI interface:
+The admin console appears in your terminal. Type `help` to see available commands.
 
-```bash
-python user-interface.py
+---
+
+## Admin console commands
+
+| Command | What it does |
+|---|---|
+| `status` | Knowledge stats + debug mode |
+| `debug on/off` | Toggle debug info in API responses |
+| `learn <text>` | Teach the local engine |
+| `reset` | Wipe and reseed knowledge base |
+| `users` | List registered accounts + PINs |
+| `chats` | List saved chats |
+| `clear-outputs` | Wipe the `outputs/` folder |
+| `models` | List available AI models |
+| `exit` / `quit` | Stop the server |
+
+---
+
+## REST API reference
+
+All POST bodies are JSON. All responses are JSON with an `ok` boolean.
+
+### Auth
+
+```
+POST /auth/register          { username, password }
+POST /auth/login             { username, password }
+POST /auth/logout            { username }
+POST /auth/change-password   { username, current_password, new_password }
+POST /auth/login-pin         { pin }
 ```
 
-## Useful Commands
+### User info
 
-From the terminal chat prompt, use commands like:
+```
+GET  /me?username=<u>
+GET  /stats?username=<u>&model=<m>
+```
 
-- `/register-as` — create a user account via Tkinter popup
-- `/login-as <name> <password>` — log in as an existing user
-- `/apikey <1|2|3>` — select which API key slot to use
-- `/model <name>` — switch provider between `gemini`, `openrouter`, and `groq`
-- `/logout` — log out
-- `/exit` — quit the app
+### Chat
 
-The app also supports hidden commands starting with `.` for advanced flows.
+```
+POST /chat                   { username, message, model? }
+GET  /chat/history?username=<u>
+POST /chat/load              { username, pin }
+POST /chat/clear             { username }
+POST /chat/export            { username }
+```
 
-## Security
+**Chat response shape:**
 
-- Do not commit `.apikeys` to Git.
-- Keep `.apikeys` private and never share your real API keys.
-- Use `.apikeys_example` as a template for new installations.
+```json
+{
+  "ok": true,
+  "answer": "...",
+  "error": null,
+  "action_log": ["✓ ran: ls -la", "    file1 file2"],
+  "saved_files": ["output.py"],
+  "plain_blocks": [{"language": "python", "code": "..."}],
+  "debug": null
+}
+```
 
-## Files to Know
+`plain_blocks` are code blocks the AI produced with no auto-save directive — the client should ask the user whether to save them, then POST to `/files/save-block`.
 
-- `main.py` — terminal app entry point
-- `user-interface.py` — Tkinter GUI entry point
-- `.apikeys` — secret API key storage (ignored by git)
-- `.apikeys_example` — example API key template
-- `requirements.txt` — Python dependency list
-- `apikey_settings.py` — per-user provider and key selection settings
+### Knowledge
 
-## License
+```
+POST /learn                  { username, sentence }
+POST /reset-knowledge        {}
+```
 
-Include a license file in your repository if you want to release this project publicly.
+### Files
+
+```
+GET  /files
+POST /files/read             { username, filename }
+POST /files/read-path        { username, filepath }
+POST /files/write            { username, filename, content }
+POST /files/clear-outputs    {}
+POST /files/save-block       { language, code, filename }
+```
+
+### Saved info (AI memory)
+
+```
+POST /remember               { username, text }
+GET  /remember?username=<u>
+POST /remember/forget        { username, index }
+POST /remember/forget-all    { username }
+```
+
+### API keys
+
+```
+POST /apikey/set-slot        { username, slot }     # 1/2/3 — Gemini
+POST /apikey/set-groq        { username, key }
+POST /apikey/set-openrouter  { username, key }
+```
+
+### Misc
+
+```
+POST /ping                   { username?, model? }
+GET  /clock?username=<u>&model=<m>
+GET  /health
+GET  /models
+POST /debug/on
+POST /debug/off
+```
+
+---
+
+## Models
+
+| Name | Provider |
+|---|---|
+| `3.1-flash-lite` *(default)* | Gemini |
+| `3.1-flash` | Gemini |
+| `3.5-flash` | Gemini |
+| `llama-3.3-70b` | Groq |
+| `gpt-oss-20b` | OpenRouter |
+
+---
+
+## File structure
+
+```
+server.py               ← entry point (run this)
+engine.py               ← local Markov knowledge engine
+auth.py                 ← user registration/login
+chat_history.py         ← chat persistence + PINs
+chat_loader.py          ← YAML chat load/save
+saved_info.py           ← per-user AI memory notes
+file_handler.py         ← file read/write (Linux paths)
+shell_actions.py        ← bash command runner (Linux only)
+code_extractor.py       ← code block parsing + save
+markdown_highlighter.py ← ANSI syntax highlighting
+apikey_settings.py      ← per-user API key settings
+gemini_client.py        ← Gemini API client
+groq_client.py          ← Groq API client
+openrouter_client.py    ← OpenRouter API client
+requirements.txt
+.apikeys                ← your API keys (YAML, not committed)
+knowledge.db            ← SQLite knowledge base (auto-created)
+users.env               ← registered users (auto-created)
+users.pins              ← user PINs (auto-created)
+chats/                  ← saved chat YAML files
+outputs/                ← AI-generated file outputs
+saved-info/             ← per-user memory JSON files
+.flask/user-settings/   ← per-user API key preferences
+```

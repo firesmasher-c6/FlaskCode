@@ -1,32 +1,37 @@
 """
-Executes the two AI-initiated actions that touch the outside world:
+Executes AI-initiated actions that touch the outside world:
 
-  - run_command()        -- runs a PowerShell command via pwsh.exe
-  - read_arbitrary_file() -- reads a file from anywhere on disk
+  - run_command()          -- runs a bash command
+  - read_arbitrary_file()  -- reads a file from anywhere on disk
 
-Both are only ever called from main.py AFTER the user has explicitly
-confirmed the action (see _confirm_action / _run_ai_action_loop in main.py).
-Nothing in this module executes or reads anything on its own.
+Both are only ever called AFTER the user has explicitly confirmed the
+action via the API. Nothing here executes on its own.
+
+Linux-only: PowerShell/cmd/pwsh executors are not supported.
 """
 
 import os
 import subprocess
 
-PWSH_TIMEOUT = 60  # seconds -- keeps a hung/interactive command from freezing the session
+BASH_TIMEOUT = 60      # seconds
 MAX_OUTPUT_CHARS = 4000
 MAX_READ_CHARS = 8000
 
 
-def run_command(command: str, cwd: str = None, timeout: int = PWSH_TIMEOUT):
+def run_command(command: str, cwd: str = None, executor: str = None, timeout: int = BASH_TIMEOUT):
     """
-    Run `command` through pwsh.exe. Returns (success: bool, output: str).
-    `output` combines stdout and stderr (stderr labeled), truncated to a
-    sane length before it gets handed back to the AI as context.
+    Run `command` through bash. `executor` is accepted for API compatibility
+    but only 'bash' / 'bash.exe' / None are valid on Linux.
+    Returns (success: bool, output: str).
     """
     if not command or not command.strip():
         return False, "no command given"
 
-    args = ["pwsh.exe", "-NoProfile", "-NonInteractive", "-Command", command]
+    executor = (executor or "bash").lower().strip()
+    if executor not in ("bash", "bash.exe", "sh"):
+        return False, f"executor '{executor}' is not supported on Linux — use bash"
+
+    args = ["bash", "-c", command]
 
     try:
         result = subprocess.run(
@@ -37,7 +42,7 @@ def run_command(command: str, cwd: str = None, timeout: int = PWSH_TIMEOUT):
             timeout=timeout,
         )
     except FileNotFoundError:
-        return False, "pwsh.exe not found on PATH -- is PowerShell 7+ installed?"
+        return False, "bash not found on PATH"
     except subprocess.TimeoutExpired:
         return False, f"command timed out after {timeout}s"
     except Exception as e:
@@ -57,16 +62,12 @@ def run_command(command: str, cwd: str = None, timeout: int = PWSH_TIMEOUT):
 
 def read_arbitrary_file(path: str, max_chars: int = MAX_READ_CHARS):
     """
-    Read a text file from anywhere on disk (not limited to file_handler's
-    INPUT_DIRS -- that's the point of this directive). Returns
-    (success: bool, content_or_error: str). Binary files are rejected: this
-    feeds a chat prompt, not a byte pipe.
+    Read a text file from anywhere on disk. Returns (success: bool, content_or_error: str).
     """
     if not path:
         return False, "no path given"
     if not os.path.isfile(path):
         return False, f"file not found: {path}"
-
     try:
         with open(path, "r", encoding="utf-8", errors="replace") as f:
             content = f.read()

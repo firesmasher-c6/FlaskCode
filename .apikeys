@@ -1,0 +1,6 @@
+-! FlaskCode .apikeys — YAML format
+-! Add your real keys below. Slots 1/2/3 map to /apikey <1|2|3>
+-! key_3 is the OpenRouter slot; key_2 is Groq; key_1 is Gemini
+key_1: YOUR_API_KEY_HERE
+key_2: YOUR_API_KEY_HERE
+key_3: YOUR_API_KEY_HERE

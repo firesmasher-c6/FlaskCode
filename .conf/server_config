@@ -1,0 +1,12 @@
+# SERVER PASSWORD. SHARE PRIVATELY!
+
+# Password max characters: 10
+?password:000000
+
+# Encrypt connection? 
+?True:true
+# Valid Encryption: SHA256, SHA1, BASE64
+?EncryptionMethod:SHA256
+
+# FlaskCode Server (Linux)
+# MIT, No Rights Reserved.
