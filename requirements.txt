@@ -1,5 +1,0 @@
-PyYAML>=6.0
-
-# Tkinter is used by the GUI and is provided by Python itself on Windows/macOS.
-# On Linux, install your distribution's tkinter package, for example:
-#   sudo apt install python3-tk
